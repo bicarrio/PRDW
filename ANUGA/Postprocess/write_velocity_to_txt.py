@@ -5,7 +5,12 @@ Created on Tue Jun 16 16:12:16 2015
 @author: crozas
 """
 
-import netCDF4
+# tried to include a bit of exception handling--------------------
+try:
+    import netCDF4
+except:
+    import Scientific.IO.NetCDF as netCDF4
+# -----------------------------------------------------------------
 import numpy as np
 
 #Read netCDF file
