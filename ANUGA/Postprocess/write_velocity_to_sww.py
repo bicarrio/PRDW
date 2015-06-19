@@ -69,6 +69,8 @@ outfile.false_northing = infile.getncattr('false_northing')
 outfile.datum = infile.getncattr('datum')
 outfile.projection = infile.getncattr('projection')
 outfile.units = infile.getncattr('units')
+outfile.timestep = dt
+outfile.timestep_units = 's'
 
 #Define dimensions
 number_of_volumes = outfile.createDimension('number_of_volumes', len(infile.dimensions['number_of_volumes']))
