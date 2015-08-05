@@ -8,6 +8,13 @@
 ##Benjamín Carrion PRDW
 
 # import project
+import numpy as np
+# from Scientific.IO.NetCDF import NetCDFFile
+import netCDF4 as netcdf
+
+from anuga.file.sww import Write_sww
+from anuga.config import netcdf_mode_w, netcdf_mode_r, netcdf_float
+from anuga.coordinate_transforms.geo_reference import Geo_reference
 
 ##DEFINICION DE FUNCIONES ------------------------------------------------------
 def lee_vertices_y_triangulos(malla_mike, bathy_anuga = 'bathy.csv'):
@@ -220,7 +227,7 @@ def prepare_timeboundary(filename):
 
     # Create tms NetCDF file
 
-    fid = NetCDFFile(filename, 'w')
+    fid = netcdf.Dataset(filename, 'w')
     fid.institution = 'PRDW'
     fid.description = 'Input wave'
     fid.starttime = 0.0
@@ -465,3 +472,121 @@ def escribe_malla_anuga(malla_anuga, vertices, tri_v0, tri_v1, tri_v2,
     print('Terminado.')
     #-------------------------------------------------------------
 
+def create_SWW_input(lista_puntos = 'lista_puntos.txt', time_series = 'time_series.txt',
+                     sww_file_out = 'boundary_fixed.sww', num_params = 3):
+                     
+    tipo_datos = np.float32()
+    #-------------------------------------------------
+    #Lee archivos con posiciones y series de tiempo
+    header = 3
+    fid = open(lista_puntos,'r')
+    line = fid.readline()
+    fields = line.split()
+    nx = int(fields[1])
+    line = fid.readline()
+    fields = line.split()
+    ny = int(fields[1])
+    line = fid.readline()
+    fields = line.split()
+    dt = float(fields[1])
+    fid.close()
+
+    points_utm = np.loadtxt(lista_puntos, dtype = tipo_datos, skiprows = header)[:,0:2]
+    number_of_points = len(points_utm)
+    elevation = np.loadtxt(lista_puntos, dtype = tipo_datos, skiprows = header)[:,2]
+
+    #lee el tamaño del tiempo, y lo hace relativo a 0
+    dummy = np.loadtxt(time_series, dtype = tipo_datos, skiprows = header, delimiter = '\t',
+                       usecols = (1,2))
+    number_of_times = len(dummy)
+    times = np.arange(0,number_of_times*dt,dt)
+
+    #determina número de datos válidos
+    fid = open(time_series,'r')
+    line = fid.readline()
+    line = fid.readline()
+    fields = line.split()
+    num_datos = (len(fields)-1)/(3*num_params)
+    fid.close()
+
+    index = []
+    for i in range(1, num_datos*3, 3):
+        index.append(int(fields[i][:-1]))
+
+    index_tupla = tuple(np.array(index)-1)
+
+    stage_aux = np.loadtxt(time_series, dtype = tipo_datos, skiprows = header, delimiter = '\t',
+                       usecols = tuple(range(1,num_datos+1)))
+
+    xmom_aux = np.loadtxt(time_series, dtype = tipo_datos, skiprows = header, delimiter = '\t',
+                      usecols = tuple(range(num_datos+1,2*num_datos+1)))
+
+    ymom_aux = np.loadtxt(time_series, dtype = tipo_datos, skiprows = header, delimiter = '\t',
+                      usecols = tuple(range(2*num_datos+1,3*num_datos+1)))
+
+    #crea
+    stage = np.zeros((number_of_times,number_of_points),dtype = tipo_datos)
+    xmom = np.zeros((number_of_times,number_of_points),dtype = tipo_datos)
+    ymom = np.zeros((number_of_times,number_of_points),dtype = tipo_datos)
+
+    stage[:,index_tupla] = stage_aux
+    xmom[:,index_tupla] = xmom_aux
+    ymom[:,index_tupla] = ymom_aux
+
+
+    #triangulacion a mano
+    vertices = np.zeros((nx, ny))
+    i = 0
+    for k in range(ny):
+        for l in range(nx):
+            vertices[l, k] = i
+            i += 1
+
+    volumes = []
+    for l in range(nx-1):
+        for k in range(ny-1):
+            v1 = vertices[l, k+1]
+            v2 = vertices[l, k]
+            v3 = vertices[l+1, k+1]
+            v4 = vertices[l+1, k]
+
+            volumes.append([v1, v2, v3])
+            volumes.append([v4, v3, v2])
+
+    volumes = np.array(volumes, np.int)
+
+    ##Escribe archivo SWW
+    # outfile = NetCDFFile(sww_file_out, netcdf_mode_w)
+    outfile = netcdf.Dataset(sww_file_out, netcdf_mode_w)
+    new_origin = Geo_reference(-1, 0, 0)
+    number_of_volumes = len(volumes)
+
+    sww = Write_sww(['elevation'], ['stage', 'xmomentum', 'ymomentum'])
+
+    sww.store_header(outfile, times, number_of_volumes, number_of_points,
+                     description='SWW creado en PRDW',
+                     sww_precision = netcdf_float,
+                     verbose=True)
+
+    sww.store_triangulation(outfile, points_utm, volumes,
+                            new_origin = new_origin,
+                            verbose = True)       
+
+    sww.store_static_quantities(outfile, elevation = elevation, verbose = True)
+
+    for i in range(len(times)):
+        sww.store_quantities(outfile, sww_precision = netcdf_float, slice_index = i,
+                             verbose = True,
+                             stage = stage[i,:],
+                             xmomentum = xmom[i,:],
+                             ymomentum = ymom[i,:])
+        
+    outfile.close()
+
+        
+
+
+                     
+                     
+                     
+                     
