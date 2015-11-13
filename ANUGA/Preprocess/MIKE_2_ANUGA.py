@@ -473,56 +473,60 @@ def escribe_malla_anuga(malla_anuga, vertices, tri_v0, tri_v1, tri_v2,
     #-------------------------------------------------------------
 
 def create_SWW_input(lista_puntos = 'lista_puntos.txt', time_series = 'time_series.txt',
-                     sww_file_out = 'boundary_fixed.sww', num_params = 3):
+                     sww_file_out = 'boundary_fixed.sww', num_params = 3, read_dataframe = False):
                      
-    tipo_datos = np.float32()
-    #-------------------------------------------------
-    #Lee archivos con posiciones y series de tiempo
-    header = 3
-    fid = open(lista_puntos,'r')
-    line = fid.readline()
-    fields = line.split()
-    nx = int(fields[1])
-    line = fid.readline()
-    fields = line.split()
-    ny = int(fields[1])
-    line = fid.readline()
-    fields = line.split()
-    dt = float(fields[1])
-    fid.close()
+    if read_dataframe:
+        df = pd.read_csv(time_series, sep = '\t', index_col= 0)
+        
+    else:
+        tipo_datos = np.float32()
+        #-------------------------------------------------
+        #Lee archivos con posiciones y series de tiempo
+        header = 3
+        fid = open(lista_puntos,'r')
+        line = fid.readline()
+        fields = line.split()
+        nx = int(fields[1])
+        line = fid.readline()
+        fields = line.split()
+        ny = int(fields[1])
+        line = fid.readline()
+        fields = line.split()
+        dt = float(fields[1])
+        fid.close()
 
-    points_utm = np.loadtxt(lista_puntos, dtype = tipo_datos, skiprows = header)[:,0:2]
-    number_of_points = len(points_utm)
-    elevation = np.loadtxt(lista_puntos, dtype = tipo_datos, skiprows = header)[:,2]
+        points_utm = np.loadtxt(lista_puntos, dtype = tipo_datos, skiprows = header)[:,0:2]
+        number_of_points = len(points_utm)
+        elevation = np.loadtxt(lista_puntos, dtype = tipo_datos, skiprows = header)[:,2]
 
-    #lee el tamaño del tiempo, y lo hace relativo a 0
-    dummy = np.loadtxt(time_series, dtype = tipo_datos, skiprows = header, delimiter = '\t',
-                       usecols = (1,2))
-    number_of_times = len(dummy)
-    times = np.arange(0,number_of_times*dt,dt)
+        #lee el tamaño del tiempo, y lo hace relativo a 0
+        dummy = np.loadtxt(time_series, dtype = tipo_datos, skiprows = header, delimiter = '\t',
+                           usecols = (1,2))
+        number_of_times = len(dummy)
+        times = np.arange(0,number_of_times*dt,dt)
 
-    #determina número de datos válidos
-    fid = open(time_series,'r')
-    line = fid.readline()
-    line = fid.readline()
-    fields = line.split()
-    num_datos = (len(fields)-1)/(3*num_params)
-    fid.close()
+        #determina número de datos válidos
+        fid = open(time_series,'r')
+        line = fid.readline()
+        line = fid.readline()
+        fields = line.split()
+        num_datos = (len(fields)-1)/(3*num_params)
+        fid.close()
 
-    index = []
-    for i in range(1, num_datos*3, 3):
-        index.append(int(fields[i][:-1]))
+        index = []
+        for i in range(1, num_datos*3, 3):
+            index.append(int(fields[i][:-1]))
 
-    index_tupla = tuple(np.array(index)-1)
+        index_tupla = tuple(np.array(index)-1)
 
-    stage_aux = np.loadtxt(time_series, dtype = tipo_datos, skiprows = header, delimiter = '\t',
-                       usecols = tuple(range(1,num_datos+1)))
+        stage_aux = np.loadtxt(time_series, dtype = tipo_datos, skiprows = header, delimiter = '\t',
+                           usecols = tuple(range(1,num_datos+1)))
 
-    xmom_aux = np.loadtxt(time_series, dtype = tipo_datos, skiprows = header, delimiter = '\t',
-                      usecols = tuple(range(num_datos+1,2*num_datos+1)))
+        xmom_aux = np.loadtxt(time_series, dtype = tipo_datos, skiprows = header, delimiter = '\t',
+                          usecols = tuple(range(num_datos+1,2*num_datos+1)))
 
-    ymom_aux = np.loadtxt(time_series, dtype = tipo_datos, skiprows = header, delimiter = '\t',
-                      usecols = tuple(range(2*num_datos+1,3*num_datos+1)))
+        ymom_aux = np.loadtxt(time_series, dtype = tipo_datos, skiprows = header, delimiter = '\t',
+                          usecols = tuple(range(2*num_datos+1,3*num_datos+1)))
 
     #crea
     stage = np.zeros((number_of_times,number_of_points),dtype = tipo_datos)
